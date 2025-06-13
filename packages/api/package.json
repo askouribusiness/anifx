@@ -22,7 +22,7 @@
     "build": "run-s build:*"
   },
   "dependencies": {
-    "gogoanime-api": "github:riimuru/gogoanime",
+    "gogoanime-api": "^1.0.0",
     "graphql": "^16.5.0",
     "graphql-request": "^4.3.0",
     "graphql-tag": "^2.12.6"

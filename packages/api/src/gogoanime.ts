@@ -1,11 +1,8 @@
-import {
-  scrapeMP4,
-  scrapeSearch,
-  scrapeAnimeDetails,
-} from 'gogoanime-api/lib/anime_parser';
-import { AnimeList, GogoEpisode } from 'gogoanime-api/lib/types';
+import { GoGoAnime } from 'gogoanime-api';
 
 import { getAnimeTitle } from './api';
+
+const gogo = new GoGoAnime();
 
 export async function getAnimeSlug(title: string, episode: number) {
   const emptyData = {
@@ -24,38 +21,35 @@ export async function getAnimeSlug(title: string, episode: number) {
 
   const slug = title.replace(/[^0-9a-zA-Z]+/g, ' ');
 
-  const findAnime = (await scrapeSearch({ keyw: slug })) as AnimeList[];
+  const searchResults = await gogo.search(slug);
 
-  if (findAnime.length === 0) return emptyData;
+  if (searchResults.data.length === 0) return emptyData;
 
-  const gogoEpisodes = (await scrapeAnimeDetails({ id: findAnime[0].animeId }))
-    .episodesList as GogoEpisode[];
+  const animeInfo = await gogo.animeInfo(searchResults.data[0].id);
 
-  const episodeSlug = gogoEpisodes[0]?.episodeId.split('-episode')[0];
+  const episodeSlug = animeInfo.movieId;
 
   // fetch animes dub and sub
-  const subAnime = scrapeMP4({ id: `${episodeSlug}-episode-${episode}` });
-  const dubAnime = scrapeMP4({
-    id: `${episodeSlug.replace(/-movie$/, '')}-dub-episode-${episode}`,
-  });
+  const subAnime = gogo.animeEpisodeVideo(`${episodeSlug}-episode-${episode}`);
+  const dubAnime = gogo.animeEpisodeVideo(
+    `${episodeSlug.replace(/-movie$/, '')}-dub-episode-${episode}`
+  );
 
-  const [sub, dub] = await Promise.all([subAnime, dubAnime]);
-
-  sub.sources = sub.sources || [];
-  sub.sources_bk = sub.sources_bk || [];
-  dub.sources = dub.sources || [];
-  dub.sources_bk = dub.sources_bk || [];
+  const [sub, dub] = await Promise.all([subAnime, dubAnime]).catch(() => [
+    { source: [], source_bk: [] },
+    { source: [], source_bk: [] },
+  ]);
 
   return {
     sub: {
-      Referer: sub.Referer,
-      sources: [...sub.sources, ...sub.sources_bk],
+      Referer: '',
+      sources: [...(sub.source || []), ...(sub.source_bk || [])],
     },
     dub: {
-      Referer: dub.Referer,
-      sources: [...dub.sources, ...dub.sources_bk],
+      Referer: '',
+      sources: [...(dub.source || []), ...(dub.source_bk || [])],
     },
-    episodes: gogoEpisodes.length || null,
+    episodes: animeInfo.episodeCount || 0,
   };
 }
 
